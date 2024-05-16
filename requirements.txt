@@ -11,3 +11,4 @@ flask-cors==3.0.10
 scipy==1.11.4
 mip==1.14.2
 shapely==2.0.1
+osmnx==1.9.3

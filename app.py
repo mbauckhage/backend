@@ -139,24 +139,7 @@ def generate_input_graph():
     if len(zurich_edges_area) == 0:
         return (jsonify("No edges found in this area. Try with other coordinates."), 400)
 
-    # Create a new project
-    session = None
-    try:
-        Session = sessionmaker(bind=DATABASE_CONNECTOR)
-        session = Session()
-        cursor = session.connection().connection.cursor()
-        cursor.execute(
-            f"INSERT INTO webapp.projects (prj_name) VALUES ('{project_name}') RETURNING id"
-        )
-        project_id = cursor.fetchone()[0]
-        session.commit()
-    except Exception as e:
-        if session:
-            session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        if session:
-            session.close()
+    
 
 
     # create OD matrix
@@ -192,6 +175,25 @@ def generate_input_graph():
     # save nodes for the geometry
     if DATABASE:
         
+        # Create a new project
+        session = None
+        try:
+            Session = sessionmaker(bind=DATABASE_CONNECTOR)
+            session = Session()
+            cursor = session.connection().connection.cursor()
+            cursor.execute(
+                f"INSERT INTO webapp.projects (prj_name, runtime_min) VALUES ('{project_name}', {np.round(runtime_min,2)}) RETURNING id"
+            )
+            project_id = cursor.fetchone()[0]
+            session.commit()
+        except Exception as e:
+            if session:
+                session.rollback()
+            return jsonify({"error": str(e)}), 500
+        finally:
+            if session:
+                session.close()
+            
         area_polygon['id_prj'] = project_id
         area_polygon.to_postgis(
             f"bounds", DATABASE_CONNECTOR, schema=SCHEMA, if_exists="append", index=False
@@ -587,8 +589,9 @@ def get_network_bearing():
 def get_projects():
     try:
         if DATABASE:
-            projects = pd.read_sql("SELECT id, prj_name, created FROM webapp.projects", DATABASE_CONNECTOR)
-            projects_json = projects.to_dict(orient="records")
+            projects = pd.read_sql("SELECT id, prj_name, created, runtime_min FROM webapp.projects", DATABASE_CONNECTOR)
+            replaced_df = projects.replace({np.nan: None})
+            projects_json = replaced_df.to_dict(orient="records")  
             return jsonify({"projects": projects_json}), 200
         else:
             return jsonify({"error": "Database not configured"}), 500
