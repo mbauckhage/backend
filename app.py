@@ -718,8 +718,50 @@ def create_view():
                 return jsonify({"message": f"View created successfully"}), 200
     else:
         return jsonify({"message": "Database is not enabled"}), 400
-    
-
+@app.route("/getBoundingBox", methods=["GET"])
+def get_bounding_box():
+    project_id = request.args.get("project_id")
+    bbox_params = None  # Initialize bbox_params to None
+    if DATABASE:
+        session = None
+        
+        sql_statement = f"""
+            SELECT bbox_east, bbox_south, bbox_west, bbox_north
+            FROM webapp.v_bound
+            WHERE id_prj = {project_id};"""  
+            
+        try:
+            Session = sessionmaker(bind=DATABASE_CONNECTOR)
+            session = Session()
+            cursor = session.connection().connection.cursor()
+            
+            cursor.execute(sql_statement)
+            
+            bbox_result = cursor.fetchone()
+            if bbox_result:
+                bbox_params = {
+                    "bbox_east": bbox_result[0],
+                    "bbox_south": bbox_result[1],
+                    "bbox_west": bbox_result[2],
+                    "bbox_north": bbox_result[3]
+                }
+        except Exception as e:
+            if session: 
+                session.rollback()
+            return jsonify({"error": f"Failed to get Bounding Box: {str(e)}"}), 500
+        finally:
+            if session:
+                session.close()
+                
+            if bbox_params:
+                return jsonify({
+                    "message": "Bounding box retrieved successfully",
+                    "bounding_box": bbox_params
+                }), 200
+            else:
+                return jsonify({"message": "No bounding box found"}), 200
+    else:
+        return jsonify({"message": "Database is not enabled"}), 400
 
 if __name__ == "__main__":
     # run
