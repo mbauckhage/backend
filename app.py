@@ -557,77 +557,9 @@ def get_runs():
         return jsonify({"error": str(e)}), 500
 
 
-                    
-                    
-                )
 
-                )
-                    
-                    
-                    SELECT bbox_east, bbox_south, bbox_west, bbox_north
-                    FROM webapp.v_bound
-                    WHERE id_prj = {project_id};"""
-                
-                    SELECT bbox_east, bbox_south, bbox_west, bbox_north
-                    FROM webapp.v_bound
-                    WHERE id_prj = {project_id};"""
-                
-                session.commit()
-                bbox_result = cursor.fetchone()
-                bbox_params = {
-                    "bbox_east": bbox_result[0],
-                    "bbox_south": bbox_result[1],
-                    "bbox_west": bbox_result[2],
-                    "bbox_north": bbox_result[3]
-                }
 
-                session.commit()
-                bbox_result = cursor.fetchone()
-                bbox_params = {
-                    "bbox_east": bbox_result[0],
-                    "bbox_south": bbox_result[1],
-                    "bbox_west": bbox_result[2],
-                    "bbox_north": bbox_result[3]
-                }
-                
-                
-        except Exception as e:
-            if session: session.rollback()
-            return (
-                jsonify({"error": f"Failed to create view: {str(e)}"}),
-                500,
-            )
-        finally:
-            if session:
-                session.close()
-            if layer == "v_bound":
-                return jsonify({
-                    "message": f"View created successfully",
-                    "bounding_box": bbox_params
-                }), 200
-            else:
-                return jsonify({"message": f"View created successfully"}), 200
-    else:
-        return jsonify({"message": "Database is not enabled"}), 400
 
-        except Exception as e:
-            if session: session.rollback()
-            return (
-                jsonify({"error": f"Failed to create view: {str(e)}"}),
-                500,
-            )
-        finally:
-            if session:
-                session.close()
-            if layer == "v_bound":
-                return jsonify({
-                    "message": f"View created successfully",
-                    "bounding_box": bbox_params
-                }), 200
-            else:
-                return jsonify({"message": f"View created successfully"}), 200
-    else:
-        return jsonify({"message": "Database is not enabled"}), 400
 @app.route("/getBoundingBox", methods=["GET"])
 def get_bounding_box():
     project_id = request.args.get("project_id")
