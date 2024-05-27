@@ -386,63 +386,8 @@ def optimize():
         pareto_df.to_sql(
             f"pareto", DATABASE_CONNECTOR, schema=SCHEMA, if_exists="append", index=False
         )
-        session = None
-        try:
-            
-            
-            Session = sessionmaker(bind=DATABASE_CONNECTOR)
-            session = Session()
-            cursor = session.connection().connection.cursor()
-            cursor.execute(
-                f"""
-                DROP VIEW IF EXISTS webapp.v_optimized;
-                CREATE OR REPLACE VIEW webapp.v_optimized
-                AS
-                WITH run_opt AS (
-                    SELECT row_number() OVER () AS edge_id,
-                        id_prj,
-                        id_run,
-                        source,
-                        target,
-                        edge_key,
-                        lanetype,
-                        st_makeline(n1.geometry, n2.geometry) AS geometry
-                    FROM webapp.runs_optimized
-                    JOIN zurich.nodes n1 ON runs_optimized.source = n1.osmid
-                    JOIN zurich.nodes n2 ON runs_optimized.target = n2.osmid
-                    WHERE id_prj = {project_id} AND id_run = {run_id}
-                ),
-                edges AS (
-                    SELECT DISTINCT source, target, distance, gradient, speed_limit
-                    FROM webapp.edges
-                    WHERE id_prj = {project_id}
-                )
-                SELECT row_number() OVER () AS edge_id,
-                    t1.id_prj,
-                    t1.id_run,
-                    t1.edge_key,
-                    t1.lanetype,
-                    t1.source,
-                    t1.target,
-                    t2.distance,
-                    t2.gradient,
-                    t2.speed_limit,
-                    t1.geometry
-                FROM run_opt t1
-                LEFT JOIN edges t2 ON t1.source = t2.source AND t1.target = t2.target;
-                GRANT ALL ON webapp.v_optimized TO postgres, selina, mbauckhage;
-                """
-            )
-            session.commit()
-        except Exception as e:
-            if session: session.rollback()
-            return (
-                jsonify({"error": f"Failed to create view: {str(e)}"}),
-                500,
-            )
-        finally:
-            if session:
-                session.close()
+        
+        
             
     else:
         project_dict[project_id][f"run{run_id}"] = result_graph_edges
@@ -612,84 +557,20 @@ def get_runs():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/create_view", methods=["POST"])
-def create_view():
-    # get input arguments
-    project_id = request.args.get("project_id")
-    run_id = request.args.get("run_id",1)
-    layer = request.args.get("layer", "v_optimized")
-    
-    # create a view in the database
-    if DATABASE:
-        session = None
-        try:
-            Session = sessionmaker(bind=DATABASE_CONNECTOR)
-            session = Session()
-            cursor = session.connection().connection.cursor()
-            if layer == "v_optimized":
-                sql_statement = f"""
-                DROP VIEW IF EXISTS webapp.v_optimized;
-                CREATE OR REPLACE VIEW webapp.v_optimized
-                AS
-                WITH run_opt AS (
-                    SELECT row_number() OVER () AS edge_id,
-                        id_prj,
-                        id_run,
-                        source,
-                        target,
-                        edge_key,
-                        lanetype,
-                        st_makeline(n1.geometry, n2.geometry) AS geometry
-                    FROM webapp.runs_optimized
-                    JOIN zurich.nodes n1 ON runs_optimized.source = n1.osmid
-                    JOIN zurich.nodes n2 ON runs_optimized.target = n2.osmid
-                    WHERE id_prj = {project_id} AND id_run = {run_id}
-                ),
-                edges AS (
-                    SELECT DISTINCT source, target, distance, gradient, speed_limit
-                    FROM webapp.edges
-                    WHERE id_prj = {project_id}
+                    
+                    
                 )
-                SELECT row_number() OVER () AS edge_id,
-                    t1.id_prj,
-                    t1.id_run,
-                    t1.edge_key,
-                    t1.lanetype,
-                    t1.source,
-                    t1.target,
-                    t2.distance,
-                    t2.gradient,
-                    t2.speed_limit,
-                    t1.geometry
-                FROM run_opt t1
-                LEFT JOIN edges t2 ON t1.source = t2.source AND t1.target = t2.target;
-                GRANT ALL ON webapp.v_optimized TO postgres, selina, mbauckhage;
-                """
-                cursor.execute(sql_statement)
-                session.commit()
-            elif layer == "v_bound":
-                cursor.execute(
-                    f"""
-                    DROP VIEW IF EXISTS webapp.v_bound;
-                    CREATE OR REPLACE VIEW webapp.v_bound
-                    AS
-                    SELECT id, 
-                        id_prj, 
-                        ST_XMin(ST_Extent(geometry)) AS bbox_east, 
-                        ST_YMin(ST_Extent(geometry)) AS bbox_south, 
-                        ST_XMax(ST_Extent(geometry)) AS bbox_west, 
-                        ST_YMax(ST_Extent(geometry)) AS bbox_north,
-                        geometry
-                    FROM webapp.bounds
-                    WHERE bounds.id_prj = {project_id}
-                    GROUP BY id, id_prj;
-                    GRANT ALL ON webapp.v_bound TO postgres, selina, mbauckhage;
+
+                )
+                    
                     
                     SELECT bbox_east, bbox_south, bbox_west, bbox_north
                     FROM webapp.v_bound
                     WHERE id_prj = {project_id};"""
-                    
-                )
+                
+                    SELECT bbox_east, bbox_south, bbox_west, bbox_north
+                    FROM webapp.v_bound
+                    WHERE id_prj = {project_id};"""
                 
                 session.commit()
                 bbox_result = cursor.fetchone()
@@ -699,7 +580,36 @@ def create_view():
                     "bbox_west": bbox_result[2],
                     "bbox_north": bbox_result[3]
                 }
+
+                session.commit()
+                bbox_result = cursor.fetchone()
+                bbox_params = {
+                    "bbox_east": bbox_result[0],
+                    "bbox_south": bbox_result[1],
+                    "bbox_west": bbox_result[2],
+                    "bbox_north": bbox_result[3]
+                }
                 
+                
+        except Exception as e:
+            if session: session.rollback()
+            return (
+                jsonify({"error": f"Failed to create view: {str(e)}"}),
+                500,
+            )
+        finally:
+            if session:
+                session.close()
+            if layer == "v_bound":
+                return jsonify({
+                    "message": f"View created successfully",
+                    "bounding_box": bbox_params
+                }), 200
+            else:
+                return jsonify({"message": f"View created successfully"}), 200
+    else:
+        return jsonify({"message": "Database is not enabled"}), 400
+
         except Exception as e:
             if session: session.rollback()
             return (
