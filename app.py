@@ -505,7 +505,7 @@ def get_network_bearing():
             # load nodes from database
             nodes_zurich = pd.read_sql(f"""
                 SELECT z.osmid, z.x, z.y
-                FROM zurich.nodes AS z
+                FROM zurich.nodes{FULL_GRAPH} AS z
                 JOIN  webapp.edges AS w ON w.source = z.osmid OR w.target = z.osmid
                 WHERE w.id_prj = {project_id}
                 """, DATABASE_CONNECTOR)
